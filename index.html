@@ -682,8 +682,8 @@
     distech: {
       label: "Distech Controls (Niagara)",
       mode: "pb",
-      itUnit: "min",
-      note: "Distech uses Proportional Band (%) and Integral Time (min). Larger PB = slower response. Larger Integral Time = slower correction of steady-state error."
+      itUnit: "sec",
+      note: "Distech uses Proportional Band (%) and Integral Time (sec). Larger PB = slower response. Larger Integral Time = slower correction of steady-state error."
     },
     tridium: {
       label: "Tridium Niagara (native PID)",
@@ -704,8 +704,9 @@
     },
     honeywell_optimizer: {
       label: "Honeywell Optimizer (Niagara-based)",
-      mode: "gain",
-      note: "The Optimizer line runs on Niagara, so it follows Proportional Gain + reset rate (repeats/min) — not the legacy Honeywell PB/Integral Time behavior."
+      mode: "pb",
+      itUnit: "sec",
+      note: "The Optimizer line runs on Niagara internally, but its interface displays Proportional Band (%) and Integral Time (sec), same convention as legacy Honeywell."
     }
   };
 
