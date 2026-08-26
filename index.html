@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PID Loop Tuning Calculator</title>
+<meta name="description" content="PI loop tuning starting-point calculator for HVAC/BAS controls, with manufacturer-specific PID terminology reference.">
+<meta name="theme-color" content="#12181F">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #12181F;
+    --panel: #1B232C;
+    --panel-raised: #212B36;
+    --line: #2C3844;
+    --text: #E7E9EC;
+    --muted: #8A94A0;
+    --amber: #E8A33D;
+    --amber-dim: #7A5A28;
+    --teal: #4FD1C5;
+    --teal-dim: #285A54;
+    --red: #E0644F;
+    --red-dim: #6B2E25;
+    --radius: 10px;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    padding-bottom: 48px;
+  }
+
+  a { color: var(--teal); }
+
+  /* Header */
+  header {
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(232,163,61,0.06), transparent 60%),
+      var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .header-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .mark {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .title-block h1 {
+    font-family: var(--mono);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .title-block p {
+    margin: 2px 0 0;
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+  }
+
+  /* Tabs */
+  .tabs {
+    max-width: 920px;
+    margin: 16px auto 0;
+    padding: 0 20px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 9px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tab-btn:hover { border-color: var(--amber-dim); color: var(--text); }
+
+  .tab-btn.active {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #1a1408;
+    font-weight: 600;
+  }
+
+  main {
+    max-width: 920px;
+    margin: 24px auto 0;
+    padding: 0 20px;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .panel-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-label::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--amber);
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  label.field-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  select {
+    width: 100%;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 0.95rem;
+    padding: 11px 14px;
+    border-radius: 8px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A94A0' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 18px;
+    cursor: pointer;
+  }
+
+  select:focus, .behavior-btn:focus-visible, .tab-btn:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 560px) {
+    .field-row { grid-template-columns: 1fr; }
+  }
+
+  /* Gauge / readout */
+  .readout-grid {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+
+  @media (max-width: 620px) {
+    .readout-grid { grid-template-columns: 1fr; }
+    .gauge-wrap { margin: 0 auto; }
+  }
+
+  .gauge-wrap { width: 180px; }
+
+  .gauge-caption {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  .readout-values {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .readout-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px dashed var(--line);
+    padding-bottom: 12px;
+  }
+
+  .readout-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .readout-name {
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+
+  .readout-value {
+    font-family: var(--mono);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--teal);
+    text-align: right;
+  }
+
+  .readout-value .unit {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  .readout-sub {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 2px;
+  }
+
+  .manufacturer-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--panel-raised);
+    border-left: 3px solid var(--amber);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* Behavior buttons */
+  .behavior-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  @media (max-width: 560px) {
+    .behavior-grid { grid-template-columns: 1fr; }
+  }
+
+  .behavior-btn {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    text-align: left;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: var(--sans);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .behavior-btn:hover { border-color: var(--muted); }
+
+  .behavior-btn.selected {
+    border-color: var(--teal);
+    background: rgba(79, 209, 197, 0.08);
+  }
+
+  .behavior-btn .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+    background: var(--line);
+  }
+
+  .behavior-btn.selected .dot { background: var(--teal); }
+
+  .behavior-btn .btxt strong {
+    display: block;
+    font-size: 0.86rem;
+    margin-bottom: 2px;
+  }
+
+  .behavior-btn .btxt span {
+    font-size: 0.76rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  .adjust-note {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 6px;
+    font-size: 0.83rem;
+    line-height: 1.5;
+    border-left: 3px solid var(--teal);
+    background: var(--panel-raised);
+  }
+
+  .adjust-note.warn { border-left-color: var(--red); }
+
+  .disclaimer {
+    font-size: 0.76rem;
+    color: var(--muted);
+    line-height: 1.5;
+    padding-top: 4px;
+  }
+
+  /* Reference table */
+  .ref-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    background: var(--panel);
+  }
+
+  .ref-card h3 {
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    margin: 0 0 10px;
+    color: var(--amber);
+  }
+
+  .ref-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--teal);
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+
+  .ref-card p {
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .conv-box {
+    margin-top: 20px;
+    padding: 16px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .conv-box h3 {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    margin: 0 0 10px;
+  }
+
+  .conv-box code {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    background: var(--panel-raised);
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    color: var(--teal);
+  }
+
+  .conv-box p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 6px 0 0;
+  }
+
+  footer {
+    max-width: 920px;
+    margin: 8px auto 0;
+    padding: 12px 20px 0;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .install-hint {
+    display: none;
+    max-width: 920px;
+    margin: 0 auto 16px;
+    padding: 0 20px;
+  }
+
+  .install-hint.show { display: block; }
+
+  .install-banner {
+    background: var(--panel-raised);
+    border: 1px solid var(--amber-dim);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .install-banner button {
+    background: var(--amber);
+    color: #1a1408;
+    border: none;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <svg class="mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="2" y="2" width="96" height="96" rx="18" fill="#12181F"/>
+      <line x1="14" y1="41" x2="82" y2="41" stroke="#4FD1C5" stroke-width="3" stroke-dasharray="6 5" stroke-linecap="round"/>
+      <path d="M 16 78 C 22 55, 26 18, 34 18 C 42 18, 40 44, 48 44 C 54 44, 52 34, 60 34 C 68 34, 66 41, 76 41"
+            fill="none" stroke="#E8A33D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="82" cy="41" r="4.5" fill="#E8A33D"/>
+    </svg>
+    <div class="title-block">
+      <h1>PID LOOP TUNING</h1>
+      <p>PI starting points for HVAC/BAS loops — by loop type &amp; manufacturer</p>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-view="tune">Tune</button>
+    <button class="tab-btn" data-view="reference">Manufacturer Reference</button>
+  </div>
+</header>
+
+<div class="install-hint" id="installHint">
+  <div class="install-banner">
+    <span>Install this as an app on your device for offline field use.</span>
+    <button id="installBtn">Install</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- TUNE VIEW -->
+  <section class="view active" id="view-tune">
+
+    <div class="panel">
+      <p class="panel-label">Loop setup</p>
+      <div class="field-row">
+        <div>
+          <label class="field-label" for="loopType">Loop type</label>
+          <select id="loopType"></select>
+        </div>
+        <div>
+          <label class="field-label" for="manufacturer">Controller / platform</label>
+          <select id="manufacturer"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Suggested starting point</p>
+      <div class="readout-grid">
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 180 120" id="gaugeSvg" aria-hidden="true">
+            <path id="gaugeTrack" d="" fill="none" stroke="#2C3844" stroke-width="12" stroke-linecap="round"/>
+            <path id="gaugeFill" d="" fill="none" stroke="#E8A33D" stroke-width="12" stroke-linecap="round"/>
+            <line id="gaugeNeedle" x1="90" y1="100" x2="90" y2="45" stroke="#4FD1C5" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="90" cy="100" r="6" fill="#4FD1C5"/>
+          </svg>
+          <div class="gauge-caption" id="gaugeCaption">Gain</div>
+        </div>
+        <div class="readout-values">
+          <div class="readout-row">
+            <div>
+              <div class="readout-name" id="pbFieldName">Proportional Band</div>
+              <div class="readout-sub" id="pbFieldSub"></div>
+            </div>
+            <div>
+              <div class="readout-value" id="pbValue">–</div>
+            </div>
+          </div>
+          <div class="readout-row">
+            <div>
+              <div class="readout-name" id="itFieldName">Integral Time</div>
+              <div class="readout-sub" id="itFieldSub"></div>
+            </div>
+            <div>
+              <div class="readout-value" id="itValue">–</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="manufacturer-note" id="manufacturerNote"></div>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Observed behavior on site</p>
+      <div class="behavior-grid" id="behaviorGrid"></div>
+      <div class="adjust-note" id="adjustNote"></div>
+    </div>
+
+    <p class="disclaimer">
+      These are field starting points, not final settings — derived from typical HVAC loop characteristics, not a specific manufacturer's engineering manual. Always verify against the actual sequence of operations and equipment response, and confirm the loop is stable (setpoint held, no hunting) before leaving site.
+    </p>
+
+  </section>
+
+  <!-- REFERENCE VIEW -->
+  <section class="view" id="view-reference">
+
+    <div class="ref-card">
+      <h3>Distech Controls (Niagara)</h3>
+      <div class="ref-terms">
+        <span class="pill">Proportional Band (%)</span>
+        <span class="pill">Integral Time (min)</span>
+      </div>
+      <p>Native units are Proportional Band and Integral Time in minutes. Counterintuitive but important: a <em>larger</em> PB number means a slower, gentler response, and a <em>larger</em> Integral Time means slower correction of steady-state error — the opposite of what techs used to gain-based systems often assume.</p>
+    </div>
+
+    <div class="ref-card">
+      <h3>Tridium Niagara (native PID object)</h3>
+      <div class="ref-terms">
+        <span class="pill">Proportional Gain</span>
+        <span class="pill">Integral Constant (repeats/min)</span>
+      </div>
+      <p>Native N4 PID objects are commonly configured with Proportional Gain directly, plus an integral constant expressed as repeats per minute (reset rate) — typically under 1, with around 0.5 a common starting point. Convert to/from Distech-style band with <strong>PB = 100 / Gain</strong>.</p>
+    </div>
+
+    <div class="ref-card">
+      <h3>Johnson Controls Metasys</h3>
+      <div class="ref-terms">
+        <span class="pill">Proportional Band (%)</span>
+        <span class="pill">Integral Time (min)</span>
+        <span class="pill">PRAC self-tuning</span>
+      </div>
+      <p>Native attributes are Proportional Band and Integral Time. Metasys also runs PRAC (Pattern Recognition Adaptive Control) by default, which continuously self-tunes PB/IT — many Metasys loops are never manually tuned at all, so check whether PRAC is enabled before assuming a fixed setting is in effect.</p>
+    </div>
+
+    <div class="ref-card">
+      <h3>Honeywell — Spyder / CentraLine (legacy)</h3>
+      <div class="ref-terms">
+        <span class="pill">Proportional Band (%)</span>
+        <span class="pill">Integral Action Time (sec)</span>
+      </div>
+      <p>Native units are Proportional Band and Integral Action Time in seconds. Practical floor to know: integral action effectively disables itself if Integral Time is set below roughly 15 seconds.</p>
+    </div>
+
+    <div class="ref-card">
+      <h3>Honeywell Optimizer (Advanced / VAV / Unitary)</h3>
+      <div class="ref-terms">
+        <span class="pill">Proportional Gain</span>
+        <span class="pill">Reset rate (repeats/min)</span>
+        <span class="pill">Niagara-based</span>
+      </div>
+      <p>The newer BACnet Optimizer line runs on the Niagara framework, so it follows Tridium-style Proportional Gain and integral reset rate — <strong>not</strong> the legacy Spyder/CentraLine Proportional Band / Integral Time behavior above. Don't assume the 15-second integral floor applies here.</p>
+    </div>
+
+    <div class="conv-box">
+      <h3>Core conversions</h3>
+      <code>Proportional Band (%) = 100 / Proportional Gain</code>
+      <code>Proportional Gain = 100 / Proportional Band (%)</code>
+      <code>Reset rate (repeats/min) = 1 / Integral Time (min)</code>
+      <p>Use these to translate a starting point from one platform's units into another's when cross-referencing panels from different manufacturers on the same job.</p>
+    </div>
+
+  </section>
+
+</main>
+
+<footer>
+  PID Loop Tuning Calculator — starting-point reference, not a substitute for verifying against equipment documentation.
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Data ----------
+
+  const loopTypes = {
+    discharge_air: {
+      label: "Discharge Air Temp (coil valve)",
+      pbLow: 3, pbHigh: 8,
+      itLowSec: 60, itHighSec: 180
+    },
+    mixed_air: {
+      label: "Mixed Air Temp",
+      pbLow: 8, pbHigh: 15,
+      itLowSec: 120, itHighSec: 300
+    },
+    water_valve: {
+      label: "Chilled / Hot Water Valve (AHU)",
+      pbLow: 5, pbHigh: 10,
+      itLowSec: 60, itHighSec: 120
+    },
+    vav_damper: {
+      label: "VAV Box Damper",
+      pbLow: 3, pbHigh: 6,
+      itLowSec: 30, itHighSec: 90
+    },
+    duct_static: {
+      label: "Duct Static Pressure",
+      pbLow: 10, pbHigh: 20,
+      itLowSec: 20, itHighSec: 60
+    },
+    zone_temp: {
+      label: "Zone Temperature",
+      pbLow: 10, pbHigh: 20,
+      itLowSec: 300, itHighSec: 600
+    }
+  };
+
+  const manufacturers = {
+    distech: {
+      label: "Distech Controls (Niagara)",
+      mode: "pb",
+      itUnit: "min",
+      note: "Distech uses Proportional Band (%) and Integral Time (min). Larger PB = slower response. Larger Integral Time = slower correction of steady-state error."
+    },
+    tridium: {
+      label: "Tridium Niagara (native PID)",
+      mode: "gain",
+      note: "Native N4 PID objects commonly use Proportional Gain directly, plus an integral constant in repeats/min (reset rate). PB = 100 / Gain."
+    },
+    jci: {
+      label: "Johnson Controls Metasys",
+      mode: "pb",
+      itUnit: "min",
+      note: "Metasys uses Proportional Band (%) and Integral Time (min) natively, but PRAC self-tuning is often enabled and will override manual values — confirm PRAC status first."
+    },
+    honeywell_legacy: {
+      label: "Honeywell Spyder / CentraLine (legacy)",
+      mode: "pb",
+      itUnit: "sec",
+      note: "Legacy Honeywell uses Proportional Band (%) and Integral Action Time (sec). Integral disables below ~15 seconds — don't tune below that floor."
+    },
+    honeywell_optimizer: {
+      label: "Honeywell Optimizer (Niagara-based)",
+      mode: "gain",
+      note: "The Optimizer line runs on Niagara, so it follows Proportional Gain + reset rate (repeats/min) — not the legacy Honeywell PB/Integral Time behavior."
+    }
+  };
+
+  // Behavior adjustment multipliers, applied to the loop's base PB and IT ranges.
+  // Framed as "next step to try", re-observe and iterate from there.
+  const behaviors = {
+    stable: {
+      label: "Stable / first pass",
+      desc: "No adjustment — use the loop-type starting range as-is.",
+      pbMult: 1.0, itMult: 1.0,
+      note: "Baseline range for this loop type. Load it, observe response, then pick the behavior you actually see."
+    },
+    overshoot: {
+      label: "Overshoot, slow oscillation",
+      desc: "Setpoint is passed and it swings back and forth slowly.",
+      pbMult: 1.3, itMult: 1.4,
+      note: "This pattern usually means both gain and reset action are a bit aggressive for this process. Try widening the proportional band (~+30%) and lengthening integral time (~+40%), then re-observe."
+    },
+    sluggish: {
+      label: "Too sluggish",
+      desc: "Slow, gradual approach to setpoint with no oscillation.",
+      pbMult: 0.75, itMult: 0.75,
+      note: "The loop is under-driven. Try narrowing the proportional band (~-25%) and/or shortening integral time (~-25%) to speed up correction — adjust one at a time and re-observe."
+    },
+    hunting: {
+      label: "Fast, tight oscillation (hunting)",
+      desc: "Quick back-and-forth cycling around setpoint.",
+      pbMult: 1.0, itMult: 1.5,
+      note: "Fast hunting is typically integral action reacting too quickly relative to the process. Leave proportional band as-is and lengthen integral time (~+50%) first before touching gain."
+    }
+  };
+
+  // ---------- DOM refs ----------
+
+  const loopSelect = document.getElementById("loopType");
+  const mfrSelect = document.getElementById("manufacturer");
+  const pbFieldName = document.getElementById("pbFieldName");
+  const pbFieldSub = document.getElementById("pbFieldSub");
+  const pbValue = document.getElementById("pbValue");
+  const itFieldName = document.getElementById("itFieldName");
+  const itFieldSub = document.getElementById("itFieldSub");
+  const itValue = document.getElementById("itValue");
+  const manufacturerNote = document.getElementById("manufacturerNote");
+  const behaviorGrid = document.getElementById("behaviorGrid");
+  const adjustNote = document.getElementById("adjustNote");
+  const gaugeFill = document.getElementById("gaugeFill");
+  const gaugeTrack = document.getElementById("gaugeTrack");
+  const gaugeNeedle = document.getElementById("gaugeNeedle");
+  const gaugeCaption = document.getElementById("gaugeCaption");
+
+  let selectedBehavior = "stable";
+
+  // ---------- Populate selects ----------
+
+  Object.keys(loopTypes).forEach((key) => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = loopTypes[key].label;
+    loopSelect.appendChild(opt);
+  });
+
+  Object.keys(manufacturers).forEach((key) => {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = manufacturers[key].label;
+    mfrSelect.appendChild(opt);
+  });
+
+  Object.keys(behaviors).forEach((key) => {
+    const b = behaviors[key];
+    const btn = document.createElement("button");
+    btn.className = "behavior-btn" + (key === selectedBehavior ? " selected" : "");
+    btn.dataset.key = key;
+    btn.innerHTML =
+      '<span class="dot"></span><span class="btxt"><strong>' +
+      b.label + "</strong><span>" + b.desc + "</span></span>";
+    btn.addEventListener("click", function () {
+      selectedBehavior = key;
+      document.querySelectorAll(".behavior-btn").forEach((el) => el.classList.remove("selected"));
+      btn.classList.add("selected");
+      render();
+    });
+    behaviorGrid.appendChild(btn);
+  });
+
+  // ---------- Gauge geometry ----------
+  // Arc spans 180deg (semi-circle), radius 68 centered at (90,100)
+
+  function polar(cx, cy, r, angleDeg) {
+    const a = (angleDeg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(a), y: cy - r * Math.sin(a) };
+  }
+
+  function arcPath(cx, cy, r, startDeg, endDeg) {
+    const s = polar(cx, cy, r, startDeg);
+    const e = polar(cx, cy, r, endDeg);
+    const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+    return "M " + s.x.toFixed(2) + " " + s.y.toFixed(2) +
+      " A " + r + " " + r + " 0 " + largeArc + " 0 " + e.x.toFixed(2) + " " + e.y.toFixed(2);
+  }
+
+  gaugeTrack.setAttribute("d", arcPath(90, 100, 68, 180, 0));
+
+  function setGauge(fraction) {
+    // fraction 0..1 across the 180deg sweep, 180deg = start (left) -> 0deg = end (right)
+    const f = Math.max(0, Math.min(1, fraction));
+    const endDeg = 180 - f * 180;
+    gaugeFill.setAttribute("d", arcPath(90, 100, 68, 180, endDeg));
+    const needleEnd = polar(90, 100, 55, endDeg);
+    gaugeNeedle.setAttribute("x2", needleEnd.x.toFixed(2));
+    gaugeNeedle.setAttribute("y2", needleEnd.y.toFixed(2));
+  }
+
+  // ---------- Formatting helpers ----------
+
+  function fmt(n) {
+    return (Math.round(n * 100) / 100).toString();
+  }
+
+  function secToMin(sec) { return sec / 60; }
+
+  // ---------- Render ----------
+
+  function render() {
+    const loop = loopTypes[loopSelect.value];
+    const mfr = manufacturers[mfrSelect.value];
+    const beh = behaviors[selectedBehavior];
+
+    // Apply behavior multipliers to base ranges
+    const pbLow = loop.pbLow * beh.pbMult;
+    const pbHigh = loop.pbHigh * beh.pbMult;
+    const itLowSec = loop.itLowSec * beh.itMult;
+    const itHighSec = loop.itHighSec * beh.itMult;
+
+    if (mfr.mode === "pb") {
+      pbFieldName.textContent = "Proportional Band";
+      pbFieldSub.textContent = "";
+      pbValue.innerHTML = fmt(pbLow) + "–" + fmt(pbHigh) + '<span class="unit">%</span>';
+
+      let itLowDisp, itHighDisp, itUnitLabel;
+      if (mfr.itUnit === "min") {
+        itLowDisp = secToMin(itLowSec);
+        itHighDisp = secToMin(itHighSec);
+        itUnitLabel = "min";
+      } else {
+        itLowDisp = itLowSec;
+        itHighDisp = itHighSec;
+        itUnitLabel = "sec";
+      }
+      itFieldName.textContent = "Integral Time";
+      itFieldSub.textContent = "";
+      itValue.innerHTML = fmt(itLowDisp) + "–" + fmt(itHighDisp) + '<span class="unit">' + itUnitLabel + "</span>";
+
+      gaugeCaption.textContent = "Proportional Band";
+      // gauge shows PB position within a broad 0-25% reference window
+      setGauge(((pbLow + pbHigh) / 2) / 25);
+    } else {
+      // gain mode
+      const gainHigh = 100 / pbLow;   // narrower PB -> higher gain
+      const gainLow = 100 / pbHigh;
+      pbFieldName.textContent = "Proportional Gain";
+      pbFieldSub.textContent = "derived from " + fmt(pbLow) + "–" + fmt(pbHigh) + "% band";
+      pbValue.innerHTML = fmt(gainLow) + "–" + fmt(gainHigh) + '<span class="unit">gain</span>';
+
+      const resetHigh = 1 / (itLowSec / 60); // shorter IT -> higher reset rate
+      const resetLow = 1 / (itHighSec / 60);
+      itFieldName.textContent = "Integral (reset rate)";
+      itFieldSub.textContent = "derived from " + fmt(secToMin(itLowSec)) + "–" + fmt(secToMin(itHighSec)) + " min";
+      itValue.innerHTML = fmt(resetLow) + "–" + fmt(resetHigh) + '<span class="unit">rep/min</span>';
+
+      gaugeCaption.textContent = "Proportional Gain";
+      setGauge(((gainLow + gainHigh) / 2) / 15);
+    }
+
+    manufacturerNote.textContent = mfr.note;
+
+    adjustNote.textContent = beh.note;
+    adjustNote.classList.toggle("warn", selectedBehavior === "hunting" || selectedBehavior === "overshoot");
+  }
+
+  loopSelect.addEventListener("change", render);
+  mfrSelect.addEventListener("change", render);
+
+  render();
+
+  // ---------- Tabs ----------
+
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("view-" + btn.dataset.view).classList.add("active");
+    });
+  });
+
+  // ---------- PWA install prompt ----------
+
+  let deferredPrompt = null;
+  const installHint = document.getElementById("installHint");
+  const installBtn = document.getElementById("installBtn");
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installHint.classList.add("show");
+  });
+
+  installBtn && installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installHint.classList.remove("show");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    installHint.classList.remove("show");
+  });
+
+  // ---------- Service worker ----------
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("service-worker.js").catch(function () {
+        /* offline support unavailable — non-fatal */
+      });
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
